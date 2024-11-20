@@ -20,7 +20,9 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 @Service
@@ -82,8 +84,13 @@ class EmailService {
             emailMessage.setCategory(category);
 
             String response = generateResponse(emailMessage);
-            sendResponse(emailMessage.getFrom(), emailMessage.getSubject(), response);
+            Map<String, String> parsedResponse = parseResponse(response);
 
+            // Use parsed subject or fallback to the original subject
+            String subject = "Re: " + (parsedResponse.get("subject").isEmpty() ? emailMessage.getSubject() : parsedResponse.get("subject"));
+            String body = parsedResponse.get("body");
+
+            sendResponse(emailMessage.getFrom(), subject, body);
             message.setFlag(Flags.Flag.SEEN, true);
 
             log.info("Processed email: {} - Category: {}", emailMessage.getSubject(), category);
@@ -121,16 +128,16 @@ class EmailService {
     private EmailCategory categorizeEmail(String content) {
         // System message for categorization
         Message systemMessage = new SystemMessage("""
-            You are an email categorization assistant.
-            Categorize the email into one of these categories: SUPPORT, SALES, COMPLAINT, GENERAL, URGENT.
-            Return only the category name without any explanation.
-            """);
+                You are an email categorization assistant.
+                Categorize the email into one of these categories: CLAIM, BILLING, POLICY UPDATE, COMPLAINT, INQUIRY.
+                Return only the category name without any explanation.
+                """);
 
         // User message with email content
         Message userMessage = new UserMessage(content);
 
         try {
-            ChatResponse response = chatClient.call(new Prompt(List.of(systemMessage, userMessage))) ;
+            ChatResponse response = chatClient.call(new Prompt(List.of(systemMessage, userMessage)));
             String category = response.getResult().getOutput().getContent().trim().toUpperCase();
             return EmailCategory.valueOf(category);
         } catch (IllegalArgumentException e) {
@@ -140,23 +147,44 @@ class EmailService {
     }
 
     private String generateResponse(EmailMessage email) {
+
+        //can have database connection to create a ticket for each mail with unique id and then pass to prompt
+
         // System message for response generation
         Message systemMessage = new SystemMessage("""
-            You are a professional email response assistant.
-            Generate responses that are:
-            - Polite and professional
-            - Address specific concerns
-            - Concise but thorough
-            - Include greeting and signature
-            - Signed as "AI Assistant"
-            Current email category: %s
-            """.formatted(email.getCategory()));
+                You are a professional email assistant specializing in insurance.
+                The sender's name is: %s.
+                The email concerns: %s.
+                The "Subject" should be concise and descriptive of the response.
+                The "Body" should include a short and polite and professional response with a ticket generated for request with  greeting and signature".            
+                Format your response as:
+                    Subject: <Subject Line>
+                    Body:
+                    <Body Content>
+                """.formatted(email.getFrom(), email.getCategory()));
 
         Message userMessage = new UserMessage(email.getContent());
 
         ChatResponse response = chatClient.call(new Prompt(List.of(systemMessage, userMessage)));
         return response.getResult().getOutput().getContent();
     }
+    private Map<String, String> parseResponse(String response) {
+        Map<String, String> responseParts = new HashMap<>();
+        String[] parts = response.split("Body:\\s*", 2); // Split at "Body:"
+
+        if (parts.length == 2) {
+            String subject = parts[0].replace("Subject:", "").trim(); // Extract and clean subject
+            String body = parts[1].trim(); // Extract body
+            responseParts.put("subject", subject);
+            responseParts.put("body", body);
+        } else {
+            log.warn("Invalid response format. Defaulting to empty subject and body.");
+            responseParts.put("subject", "");
+            responseParts.put("body", response); // Treat entire response as body if format invalid
+        }
+        return responseParts;
+    }
+
 
     private void sendResponse(String to, String subject, String responseText) throws jakarta.mail.MessagingException {
 //        SimpleMailMessage message = new SimpleMailMessage();
