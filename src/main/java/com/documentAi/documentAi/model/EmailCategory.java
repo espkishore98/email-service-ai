@@ -1,9 +1,10 @@
 package com.documentAi.documentAi.model;
 
 public enum EmailCategory {
-    SUPPORT,
-    SALES,
-    COMPLAINT,
+    CLAIM,
+    BILLING,
+    POLICY_UPDATE,
     GENERAL,
-    URGENT
+    ENQUIRY,
+    COMPLAINT
 }

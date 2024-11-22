@@ -7,6 +7,9 @@ import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.search.FlagTerm;
 import lombok.extern.slf4j.Slf4j;
+import org.camunda.bpm.engine.HistoryService;
+import org.camunda.bpm.engine.RuntimeService;
+import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.springframework.ai.chat.ChatClient;
 import org.springframework.ai.chat.ChatResponse;
 import org.springframework.ai.chat.messages.Message;
@@ -31,17 +34,21 @@ class EmailService {
     private final JavaMailSender emailSender;
     private final ChatClient chatClient;
     private final Properties mailProperties;
-
+    private final RuntimeService runtimeService; // Camunda RuntimeService
+    private final HistoryService historyService;
     @Value("${spring.mail.username}")
     private String emailUsername;
     @Value("${spring.mail.password}")
     private String password;
 
 
-    public EmailService(JavaMailSender emailSender, ChatClient chatClient) {
+    public EmailService(JavaMailSender emailSender, ChatClient chatClient, RuntimeService runtimeService,
+                        HistoryService historyService) {
         this.emailSender = emailSender;
         this.chatClient = chatClient;
         this.mailProperties = new Properties();
+        this.runtimeService = runtimeService;
+        this.historyService = historyService;
     }
 
     @Scheduled(cron = "0 */2 * ? * *")
@@ -129,7 +136,7 @@ class EmailService {
         // System message for categorization
         Message systemMessage = new SystemMessage("""
                 You are an email categorization assistant.
-                Categorize the email into one of these categories: CLAIM, BILLING, POLICY UPDATE, COMPLAINT, INQUIRY.
+                Categorize the email into one of these categories: CLAIM, BILLING, POLICY_UPDATE, COMPLAINT, ENQUIRY.
                 Return only the category name without any explanation.
                 """);
 
@@ -150,56 +157,108 @@ class EmailService {
 
         //can have database connection to create a ticket for each mail with unique id and then pass to prompt
 
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("emailContent", email.getContent());
+        variables.put("emailFrom", email.getFrom());
+        variables.put("emailCategory", email.getCategory().name());
+
+        // Start the Camunda process with the variables passed in
+        ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("ticketProcess", variables);
+        System.out.println("processInstance " + processInstance.getId());
+        // Fetch ticketId and other variables after the process completes
+        String ticketId;
+        if (runtimeService.createProcessInstanceQuery().processInstanceId(processInstance.getId()).singleResult() != null) {
+            ticketId = (String) runtimeService.getVariable(processInstance.getId(), "ticketId");
+        } else {
+            // Fetch from history if the process has completed
+            ticketId = historyService.createHistoricVariableInstanceQuery()
+                    .processInstanceId(processInstance.getId())
+                    .variableName("ticketId")
+                    .singleResult()
+                    .getValue()
+                    .toString();
+        }
+        // Handle the generated response, e.g., return the ticketId and response
+        log.info("Generated ticket ID: {}", ticketId);
         // System message for response generation
         Message systemMessage = new SystemMessage("""
-                You are a professional email assistant specializing in insurance.
-                The sender's name is: %s.
-                The email concerns: %s.
-                The "Subject" should be concise and descriptive of the response.
-                The "Body" should include a short and polite and professional response with a ticket generated for request with  greeting and signature".            
-                Format your response as:
-                    Subject: <Subject Line>
-                    Body:
-                    <Body Content>
+                You are a professional email assistant working on behalf of an insurance company, responding to customer emails.
+                                
+                The sender's name is: %s. \s
+                The email concerns: %s. \s
+                                
+                The "Subject" should be concise and descriptive of the response, starting with a placeholder for the ticketId. The structure should be `{ticketId} - [Subject of the response]`. \s
+                                
+                The "Body" should include: \s
+                1. A formal greeting addressing the sender. \s
+                2. A concise response in **two paragraphs**. Each paragraph should be clearly separated by line breaks. Include a list if necessary, using proper list formatting (e.g., `-` for bullet points). \s
+                3. A formal closing signature, followed by an automated message disclaimer.
+                                
+                Please generate the response in **HTML format** for better readability in emails, using `<p>` for paragraphs and `<br>` for line breaks. Format your response as follows:
+                Subject: {ticketId} - [Subject Line]
+                Body:
+                <p>Dear [Sender's Name],</p> 
+                <p>[Paragraph 1 content with line breaks and lists, if any].</p>
+                 <p>[Paragraph 2 content mentioning {ticketId}].</p> 
+                 <p>Sincerely,<br>[Your Insurance Company Name]</p>
+                <p><i>This is an automated message; please do not reply directly to this email.</i></p>            
                 """.formatted(email.getFrom(), email.getCategory()));
 
         Message userMessage = new UserMessage(email.getContent());
 
         ChatResponse response = chatClient.call(new Prompt(List.of(systemMessage, userMessage)));
-        return response.getResult().getOutput().getContent();
+        String updatedResponse = response.getResult().getOutput().getContent().replace("{ticketId}", ticketId);
+
+        return updatedResponse;
     }
+
     private Map<String, String> parseResponse(String response) {
         Map<String, String> responseParts = new HashMap<>();
-        String[] parts = response.split("Body:\\s*", 2); // Split at "Body:"
+
+        // Split the response at "Body:" to separate the subject and body content
+        String[] parts = response.split("Body:\\s*", 2);
 
         if (parts.length == 2) {
-            String subject = parts[0].replace("Subject:", "").trim(); // Extract and clean subject
-            String body = parts[1].trim(); // Extract body
+            // Extract and clean subject
+            String subject = parts[0].replace("Subject:", "").trim();
+
+            // Extract body content
+            String body = parts[1].trim();
+
+            // Normalize line breaks (important for consistent rendering)
+            body = body.replaceAll("\\r\\n|\\r|\\n", System.lineSeparator()); // Normalize all to single line separator
+
+            // Optionally, convert double line breaks into paragraphs
+            body = body.replaceAll(System.lineSeparator() + "{2,}", "<p>") // Convert double line breaks into paragraphs
+                    .replaceAll(System.lineSeparator(), "<br>");        // Convert single line breaks to HTML <br>
+
             responseParts.put("subject", subject);
-            responseParts.put("body", body);
+            responseParts.put("body", body); // Store formatted body
         } else {
             log.warn("Invalid response format. Defaulting to empty subject and body.");
             responseParts.put("subject", "");
             responseParts.put("body", response); // Treat entire response as body if format invalid
         }
+
         return responseParts;
     }
 
 
+
     private void sendResponse(String to, String subject, String responseText) throws jakarta.mail.MessagingException {
-//        SimpleMailMessage message = new SimpleMailMessage();
-//        message.setFrom(emailUsername);
-//        message.setTo(to);
-//        message.setSubject("Re: " + subject);
-//        message.setText(responseText);
-//        log.info("response text", responseText);
         try {
             MimeMessage mimeMessage = emailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
             helper.setFrom(emailUsername);
             helper.setTo(to);
-            helper.setSubject("Re: " + subject);
-            helper.setText(responseText, true); // `true` enables HTML
+            helper.setSubject(subject);
+            String htmlContent = responseText
+                    .replace("\n", "<br>") // Preserve line breaks
+                    .replace("\n\n", "<p>") // Convert double line breaks into paragraphs
+                    .replace("Sincerely,", "<p>Sincerely,</p>"); // Ensure proper paragraph separation
+
+            helper.setText(htmlContent, true);
+            helper.setText(responseText, true);
             log.info("responseText is", responseText);
             emailSender.send(mimeMessage);
         } catch (Exception e) {

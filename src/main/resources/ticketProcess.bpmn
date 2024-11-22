@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_0m4ra5l" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.29.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.22.0">
+  <bpmn:process id="ticketProcess" name="Ticket Generation Process" isExecutable="true" camunda:historyTimeToLive="7">
+    <bpmn:startEvent id="StartEvent_1" name="Start Process">
+      <bpmn:outgoing>Flow_1ghnl76</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:endEvent id="Event_1ps0aw7" name="Process Completed">
+      <bpmn:incoming>Flow_0o1m5ot</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1ghnl76" sourceRef="StartEvent_1" targetRef="generateTicket" />
+    <bpmn:sequenceFlow id="Flow_0zof13i" sourceRef="generateTicket" targetRef="insertTicketIntoDb" />
+    <bpmn:sequenceFlow id="Flow_0o1m5ot" sourceRef="insertTicketIntoDb" targetRef="Event_1ps0aw7" />
+    <bpmn:serviceTask id="generateTicket" name="Generate ticket" camunda:delegateExpression="${generateTicketDelegate}">
+      <bpmn:incoming>Flow_1ghnl76</bpmn:incoming>
+      <bpmn:outgoing>Flow_0zof13i</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="insertTicketIntoDb" name="Insert ticket into database" camunda:delegateExpression="${insertTicketDelegate}">
+      <bpmn:incoming>Flow_0zof13i</bpmn:incoming>
+      <bpmn:outgoing>Flow_0o1m5ot</bpmn:outgoing>
+    </bpmn:serviceTask>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="ticketProcess">
+      <bpmndi:BPMNShape id="Event_1ps0aw7_di" bpmnElement="Event_1ps0aw7">
+        <dc:Bounds x="692" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="683" y="145" width="54" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
+        <dc:Bounds x="142" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="127" y="145" width="67" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_125hyev_di" bpmnElement="generateTicket">
+        <dc:Bounds x="280" y="80" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_1iouxw3_di" bpmnElement="insertTicketIntoDb">
+        <dc:Bounds x="490" y="80" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_0o1m5ot_di" bpmnElement="Flow_0o1m5ot">
+        <di:waypoint x="590" y="120" />
+        <di:waypoint x="692" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1ghnl76_di" bpmnElement="Flow_1ghnl76">
+        <di:waypoint x="178" y="120" />
+        <di:waypoint x="280" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0zof13i_di" bpmnElement="Flow_0zof13i">
+        <di:waypoint x="380" y="120" />
+        <di:waypoint x="490" y="120" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
