@@ -39,7 +39,12 @@ This application performs the following functions:
     - Implements a **Retrieval-Augmented Generation (RAG)** system to enhance email responses by incorporating contextual data.
 
 ---
+## **BPM Process Overview**
 
+![BPM Process Diagram](src/main/resources/images/image.png)  
+*Figure: The process flow of ticket generation and database insertion.*
+
+---
 ## **How to Run the Application**
 
 1. **Start Ollama:**
