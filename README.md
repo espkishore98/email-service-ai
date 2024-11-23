@@ -9,7 +9,7 @@
    Follow [this guide](https://knowledge.workspace.google.com/kb/how-to-create-app-passwords-000009237) to generate an app-specific password for Gmail. Update the password in the application's `properties` file.
 
 3. **Set up Gmail Label:**
-    - Create a label named **`insurance`** in your Gmail account.
+    - Create a label named **`Insurance`** in your Gmail account.
     - Set rules to filter and add emails to this label based on keywords such as **`claims`**, **`policy`**, **`renewal`**, etc.
 
 ---
