@@ -1,6 +1,6 @@
 package com.documentAi.documentAi.workers;
 
-import com.documentAi.documentAi.model.Ticket;
+import com.documentAi.documentAi.domain.Ticket;
 import com.documentAi.documentAi.repository.TicketRepository;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.camunda.bpm.engine.delegate.JavaDelegate;

@@ -1,4 +1,4 @@
-package com.documentAi.documentAi.model;
+package com.documentAi.documentAi.domain;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
