@@ -1,4 +1,4 @@
-# Email Categorization and Ticketing Application
+# Automated Email Response Using Spring AI and OLLAMA
 
 ## **Prerequisites**
 
