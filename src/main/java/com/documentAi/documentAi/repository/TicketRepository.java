@@ -1,6 +1,6 @@
 package com.documentAi.documentAi.repository;
 
-import com.documentAi.documentAi.model.Ticket;
+import com.documentAi.documentAi.domain.Ticket;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

@@ -10,14 +10,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
-import org.springframework.ai.chat.ChatClient;
-import org.springframework.ai.chat.ChatResponse;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -41,14 +43,17 @@ class EmailService {
     @Value("${spring.mail.password}")
     private String password;
 
-
-    public EmailService(JavaMailSender emailSender, ChatClient chatClient, RuntimeService runtimeService,
-                        HistoryService historyService) {
+    private VectorStore vectorStore;
+    public EmailService(JavaMailSender emailSender, ChatClient.Builder chatClient, RuntimeService runtimeService,
+                        HistoryService historyService,
+                        VectorStore vectorStore
+                       ) {
         this.emailSender = emailSender;
-        this.chatClient = chatClient;
+        this.chatClient = chatClient.build();
         this.mailProperties = new Properties();
         this.runtimeService = runtimeService;
         this.historyService = historyService;
+        this.vectorStore = vectorStore;
     }
 
     @Scheduled(cron = "0 */2 * ? * *")
@@ -144,7 +149,9 @@ class EmailService {
         Message userMessage = new UserMessage(content);
 
         try {
-            ChatResponse response = chatClient.call(new Prompt(List.of(systemMessage, userMessage)));
+            ChatResponse response = chatClient.prompt(new Prompt(List.of(systemMessage, userMessage)))
+                    .advisors()
+                    .call().chatResponse();
             String category = response.getResult().getOutput().getContent().trim().toUpperCase();
             return EmailCategory.valueOf(category);
         } catch (IllegalArgumentException e) {
@@ -155,7 +162,6 @@ class EmailService {
 
     private String generateResponse(EmailMessage email) {
 
-        //can have database connection to create a ticket for each mail with unique id and then pass to prompt
 
         Map<String, Object> variables = new HashMap<>();
         variables.put("emailContent", email.getContent());
@@ -187,11 +193,11 @@ class EmailService {
                 The sender's name is: %s. \s
                 The email concerns: %s. \s
                                 
-                The "Subject" should be concise and descriptive of the response, starting with a placeholder for the ticketId. The structure should be `{ticketId} - [Subject of the response]`. \s
+                The "Subject" should be concise and descriptive of the response, starting with a placeholder for the ticketId. The structure should be `{ticketId} - [Subject of the response]` ticketId is not policyNumber. 
                                 
                 The "Body" should include: \s
                 1. A formal greeting addressing the sender. \s
-                2. A concise response in **two paragraphs**. Each paragraph should be clearly separated by line breaks. Include a list if necessary, using proper list formatting (e.g., `-` for bullet points). \s
+                2. A concise response in **two paragraphs**. Each paragraph should be clearly separated by line breaks. Include a list if necessary, using proper list formatting (e.g., `-` for bullet points).
                 3. A formal closing signature, followed by an automated message disclaimer.
                                 
                 Please generate the response in **HTML format** for better readability in emails, using `<p>` for paragraphs and `<br>` for line breaks. Format your response as follows:
@@ -200,13 +206,14 @@ class EmailService {
                 <p>Dear [Sender's Name],</p> 
                 <p>[Paragraph 1 content with line breaks and lists, if any].</p>
                  <p>[Paragraph 2 content mentioning {ticketId}].</p> 
-                 <p>Sincerely,<br>[Your Insurance Company Name]</p>
+                 <p>Sincerely,<br>DataNinjas Insurance corp</p>
                 <p><i>This is an automated message; please do not reply directly to this email.</i></p>            
                 """.formatted(email.getFrom(), email.getCategory()));
 
         Message userMessage = new UserMessage(email.getContent());
 
-        ChatResponse response = chatClient.call(new Prompt(List.of(systemMessage, userMessage)));
+        ChatResponse response = chatClient.prompt(new Prompt(List.of(systemMessage, userMessage)))
+                .advisors(new QuestionAnswerAdvisor(vectorStore, SearchRequest.defaults().withTopK(5))).call().chatResponse();
         String updatedResponse = response.getResult().getOutput().getContent().replace("{ticketId}", ticketId);
 
         return updatedResponse;
