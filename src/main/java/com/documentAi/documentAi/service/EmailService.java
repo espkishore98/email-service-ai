@@ -60,7 +60,7 @@ class EmailService {
     public void processEmails() {
         try {
             Store store = connectToEmail();
-            Folder inbox = store.getFolder("INBOX");
+            Folder inbox = store.getFolder("Insurance");
             inbox.open(Folder.READ_WRITE);
             Flags seen = new Flags(Flags.Flag.SEEN);
             FlagTerm unseenFlagTerm = new FlagTerm(seen, false);
