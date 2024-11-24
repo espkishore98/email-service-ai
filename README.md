@@ -46,6 +46,9 @@ This application performs the following functions:
 ---
 ## **BPM Process Overview**
 
+   - Business Process Management (BPM) is a systematic approach to improving and optimizing business processes within an organization.
+   - It involves the identification, design, execution, monitoring, and continuous improvement of business processes to achieve better efficiency, consistency, and alignment with business goals.
+
 ![BPM Process Diagram](src/main/resources/images/image.png)  
 *Figure: The process flow of ticket generation and database insertion.*
 
