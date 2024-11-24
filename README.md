@@ -36,10 +36,18 @@ This application performs the following functions:
     - Based on predefined prompts in the code, the application sends appropriate responses to the email sender.
 
 4. **RAG-Based Approach:**
-    - Implements a **Retrieval-Augmented Generation (RAG)** system to enhance email responses by incorporating contextual data.
+    - This approach integrates a Retrieval-Augmented Generation (RAG) system to optimize email response generation by seamlessly combining external knowledge retrieval with advanced natural language generation.
+    - The system operates by first retrieving relevant contextual information from a predefined knowledge base, which could include prior email conversations, FAQs, company documentation, or other pertinent data sources.
+    - By extracting the most relevant and up-to-date content, the RAG model enhances the generated response, ensuring that it is not only contextually appropriate but also rich in detail.
+    - The retrieval process leverages state-of-the-art search techniques, including semantic search, to locate the most relevant data points in response to a given query or email context.
+    - Once the relevant information is retrieved, the generation model (often a transformer-based architecture like GPT or T5) uses this information to craft a personalized, coherent, and contextually informed response.
+    - The RAG system's ability to dynamically fetch and integrate real-time information ensures that email replies are both highly accurate and aligned with the user's specific needs or queries.
 
 ---
 ## **BPM Process Overview**
+
+   - Business Process Management (BPM) is a systematic approach to improving and optimizing business processes within an organization.
+   - It involves the identification, design, execution, monitoring, and continuous improvement of business processes to achieve better efficiency, consistency, and alignment with business goals.
 
 ![BPM Process Diagram](src/main/resources/images/image.png)  
 *Figure: The process flow of ticket generation and database insertion.*
